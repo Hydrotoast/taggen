@@ -13,7 +13,7 @@ from os import makedirs
 TRAIN_FILE = "/host/Users/Public/Documents/Train.csv"
 #TRAIN_FILE = "/host/Users/Public/Documents/head.csv"
 CLEAN_CSV_FILE = "/media/PAULKANG/train_clean.csv"
-CLEAN_DAT_FILE = "/media/PAULKANG/train_clean.dat"
+CLEAN_DAT_FILE = "/media/PAULKANG/train_cleanTAG_RINDEX_FILE.dat"
 SAMPLE_CSV_DIR = "/media/PAULKANG/samples"
 TAG_RINDEX_FILE = "/media/PAULKANG/tag_index.dat"
 
@@ -114,25 +114,25 @@ def cleaned_csv_parse(out_file=CLEAN_CSV_FILE, train=TRAIN_FILE):
 
 
 @timed
-def r_index_parse(dump_file=TAG_RINDEX_FILE):
-    if path.isfile(TAG_RINDEX_FILE):
-        return pickle.load(open(TAG_RINDEX_FILE, "r"))
+def r_index_parse(train=TRAIN_FILE, dump_file=TAG_RINDEX_FILE):
+    if path.isfile(dump_file):
+        return pickle.load(open(dump_file, "r"))
 
     tag_index = {}
-    with open(dump_file, "r") as rif:
-        rd = csv.reader(rif)
+    with open(train, "r") as tf:
+        rd = csv.reader(tf)
         rd.next()
 
         progress = 10000
         for i, line in enumerate(rd):
             for tag in line[3].split():
                 tag_index[tag] = [int(line[0])] if tag not in tag_index \
-                    else tag_index[tag].append(int(line[0]))
+                    else tag_index[tag] + [int(line[0])]
             if (i+1) % progress == 0:
                 print "parse_tags_index progress complete: %d" % (i+1)
 
     if dump_file:
-        pickle.dump(tag_index, open(TAG_RINDEX_FILE, "w"))
+        pickle.dump(tag_index, open(dump_file, "w"))
     return tag_index
 
 

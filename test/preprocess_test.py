@@ -56,10 +56,19 @@ class Friend extends User {
 }
 """, str(d[16][2][2]))
 
+
     def test_sample_index(self):
         ridx = {"hello": [(1, True), (3, False)], "world": [(3, True), (5, False)]}
         sidx = preprocess.tag_sample_index(ridx)
         self.assertEquals({1: [("hello", True)], 3: [("world", True), ("hello", False)], 5: [("world", False)]}, sidx)
+
+
+    def test_r_index(self):
+        ridx = preprocess.r_index_parse(train="head.csv", dump_file="head_rindex.dat")
+        sample = preprocess.tag_sample("javascript", ridx, 4105, 60, 1500)
+        self.assertEquals(1560, len(sample))
+
+
 
 if __name__ == '__main__':
     unittest.main()
