@@ -1,0 +1,54 @@
+Id,Title,Body,Tags
+8,How to fetch an XML feed using asp.net,"<p>I've decided to convert a Windows Phone 7 app that fetches an XML feed and then parses it to an asp.net web app, using Visual Web Developer Express. I figure since the code already works for WP7, it should be a matter of mostly copying and pasting it for the C# code behind. </p>
+
+<pre><code>HttpWebRequest request = HttpWebRequest.CreateHttp(""http://webservices.nextbus.com/service/publicXMLFeed?command=routeConfig&amp;a=sf-muni&amp;r="" + line1);
+</code></pre>
+
+<p>That's the first line of code from my WP7 app that fetches the XML feed, but I can't even get HttpWebRequest to work in Visual Web Developer like that. Intellisense shows a create and createdefault, but no CreateHttp like there was in Windows Phone 7. I just need to figure out how to fetch the page, I assume the parsing will be the same as on my phone app. Any help?</p>
+
+<p>Thanks,</p>
+
+<p>Amanda</p>
+",c# asp.net windows-phone-7
+16,PHP framework URL conventions,"<p>A lot of frameworks use URL conventions like <code>/controller/action/{id}</code> which is great, but if you need any configuration beyond that, it's up to you to write your own routes.</p>
+
+<p>How would you handle URLs like <code>/users/{id}/friends</code> on the backend? (to list all of a user's friends)</p>
+
+<p>I'm thinking that in the controller, something like this would be appropriate:</p>
+
+<pre><code>class User {
+    function index() {
+        echo 'user index';
+    }
+}
+
+class Friend extends User {
+    function index($user_id) {
+        echo 'friend index';
+    }
+}
+</code></pre>
+
+<p>Then you would have the following map:</p>
+
+<pre><code>/users              -&gt; User::index()
+/users/{id}         -&gt; User::view($id)
+/users/{id}/friends -&gt; Friend::index($user_id)
+</code></pre>
+
+<p>I wanted to put the Friend class inside the User class but apparently you can't do that in PHP so this is the best I could come up with. Thoughts?</p>
+
+<p>What URL would use for editing your list of friends? <code>/users/{id}/friends/edit</code> could work, but it doesn't seem appropriate, since you should never be editing someone else's friend list. Would <code>/account/friends/edit</code> be a better choice? Where would you put the corresponding code for that? In a friend controller, or a user controller, or a specialized account controller?</p>
+
+<p>Bonus question: which do you prefer? <code>/photos/delete/{id}</code> or <code>/photos/{id}/delete</code></p>
+
+<p><hr /></p>
+
+<p><strong>The answers:</strong></p>
+
+<p>So, what I've gathered from the answers is that if the ""thing"" is complicated (like ""friends"") but doesn't have its own controller, you can give it one without a model, or if it's not, you should stuff it in with whatever it's most closely related to. Your URLs should not influence where you put your code. Most people seem to think you should stick to <code>/controller/action/{id}</code> whever possible, because it's what people are familiar with.</p>
+
+<p>No one really commented on the extended class aside from saying it's ""awkward"". Perhaps FriendList would have been a more appropriate class in that case if I really wanted to separate it out.</p>
+
+<p>Thanks for all the answers :)</p>
+",php url-routing conventions
