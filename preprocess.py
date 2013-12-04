@@ -207,8 +207,8 @@ def generate_feature_vectors(feature_dir=FEATURE_DIR, sample_dir=SAMPLE_CSV_DIR,
             print "file %s already exists" % file_path
             continue
         print "featurizing tag sample for: %s" % f
-        x, target = sample_features(f, sample_dir, stopwords=stop_words)
-        pickle.dump({"data": x, "target": target}, open(file_path, "w"))
+        x, target, vocab = sample_features(f, sample_dir, stopwords=stop_words)
+        pickle.dump({"data": x, "target": target, "vocabulary": vocab}, open(file_path, "w"))
 
 
 
@@ -225,8 +225,7 @@ def sample_features(tag, sample_dir=SAMPLE_CSV_DIR, stopwords=[]):
 
         #cv = TfIdfVectorizer(stop_words=stopwords)
         cv = CountVectorizer(stop_words=stopwords)
-        x = cv.fit_transform(data)
-    return x, target
+    return cv.fit_transform(data), target, cv.vocabulary_
 
 
 # Test file 2+GB
