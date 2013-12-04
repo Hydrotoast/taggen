@@ -4,18 +4,25 @@ import csv
 import re
 import pickle
 import random
+import ast
 from time import time
 from functools import wraps
 from os import path
 from os import makedirs
+from os import listdir
+from sklearn.feature_extraction.text import CountVectorizer
+#from sklearn.feature_extraction.text import TfidfVectorizer
 
 
 TRAIN_FILE = "/host/Users/Public/Documents/Train.csv"
-#TRAIN_FILE = "/host/Users/Public/Documents/head.csv"
-CLEAN_CSV_FILE = "/media/PAULKANG/train_clean.csv"
-CLEAN_DAT_FILE = "/media/PAULKANG/train_cleanTAG_RINDEX_FILE.dat"
-SAMPLE_CSV_DIR = "/media/PAULKANG/samples"
-TAG_RINDEX_FILE = "/media/PAULKANG/tag_index.dat"
+TEST_FILE = "Test.csv"
+CLEAN_CSV_FILE = "train_clean.csv"
+CLEAN_DAT_FILE = "train_clean.dat"
+SAMPLE_CSV_DIR = "samples"
+FEATURE_DIR = "features"
+TAG_RINDEX_FILE = "tag_index.dat"
+STOPWORDS_FILE = "stopwords.txt"
+STOPWORDS_DAT = "stopwords.dat"
 
 
 def timed(f):
@@ -29,47 +36,21 @@ def timed(f):
     return wrapper
 
 
-#@timed
-#def cleaned_parse(train=TRAIN_FILE, dump_file=CLEAN_DAT_FILE):
-#    if dump_file and path.isfile(dump_file):
-#        return pickle.load(open(dump_file, "r"))
-#
-#    docs = {}
-#    with open(train, "r") as tf:
-#        rd = csv.reader(tf)
-#        rd.next()idx
-#
-#        text_start = 0
-#        progress = 10000
-#        starting_code = False
-#        for i, line in enumerate(rd):
-#            doc_id = int(line[0])
-#            raw_text = ""
-#            code = []
-#            for match in re.finditer("(<[^<]*>)", line[2]):
-#                rnge = match.span()
-#                if text_start == rnge[0]:
-#                    text_start = rnge[1]
-#                else:
-#                    text = line[2][text_start:rnge[0]]
-#                    if starting_code:
-#                        # Do something with the code
-#                        code.append(text)
-#                        starting_code = False
-#                    else:
-#                        raw_text += text
-#                        if match.group(1) == "<code>":
-#                            starting_code = True
-#                        elif match.group(1) == "<pre>":
-#                            starting_code = True
-#                    text_start = rnge[1]
-#            if (i+1) % progress == 0:
-#                print "parse_body progress complete: %d" % (i+1)
-#            raw_text = " ".join(raw_text.split())
-#            docs[int(line[0])] = (line[1], raw_text, code)
-#    if dump_file:
-#        pickle.dump(docs, open(dump_file, "w"))
-#    return docs
+@timed
+def cleaned_parse(query_file):
+    docs = {}
+    with open(query_file, "r") as tf:
+        rd = csv.reader(tf)
+        rd.next()
+
+        text_start = 0
+        progress = 10000
+        starting_code = False
+        for i, line in enumerate(rd):
+            docs[int(line[0])] = parse_doc(line)
+            if (i+1) % progress == 0:
+                print "parse_body progress complete: %d" % (i+1)
+    return docs
 
 
 # ======= Stored to disk ==========
@@ -86,31 +67,42 @@ def cleaned_csv_parse(out_file=CLEAN_CSV_FILE, train=TRAIN_FILE):
 
         progress = 10000
         for i, line in enumerate(rd):
-            text_start = 0
-            raw_text = ""
-            code = []
-            starting_code = False
-            for match in re.finditer("(<[^<]*>)", line[2]):
-                rnge = match.span()
-                if text_start == rnge[0]:
-                    text_start = rnge[1]
-                else:
-                    text = line[2][text_start:rnge[0]]
-                    if starting_code:
-                        code.append(text)
-                        starting_code = False
-                    else:
-                        raw_text += text
-                        if match.group(1) == "<code>":
-                            starting_code = True
-                        elif match.group(1) == "<pre>":
-                            starting_code = True
-                    text_start = rnge[1]
+            raw_text, code = parse_text(line[2])
             if (i+1) % progress == 0:
                 print "parse_body progress complete: %d" % (i+1)
-            raw_text = " ".join(raw_text.split())
             wr.writerow([line[0], line[1], raw_text, str(code)])
             ccf.flush()
+
+
+def parse_doc(row):
+    raw_text, code = parse_text(row[2])
+    return row[0], row[1], raw_text, code
+
+
+def parse_text(text):
+    text_start = 0
+    raw_text = ""
+    code = []
+    starting_code = False
+    for match in re.finditer("(<[^<]*>)", text):
+        rnge = match.span()
+        if text_start == rnge[0]:
+            text_start = rnge[1]
+        else:
+            t = text[text_start:rnge[0]]
+            if starting_code:
+                code.append(t)
+                starting_code = False
+            else:
+                raw_text += t
+                if match.group(1) == "<code>":
+                    starting_code = True
+                elif match.group(1) == "<pre>":
+                    starting_code = True
+            text_start = rnge[1]
+
+    raw_text = " ".join(raw_text.split())
+    return raw_text, code
 
 
 @timed
@@ -169,29 +161,7 @@ def tag_sample_index(samples):
     for tag in samples:
         for doc_id, positive in samples[tag]:
             tag_idx[doc_id] = [(tag, positive)] if doc_id not in tag_idx else tag_idx[doc_id] + [(tag, positive)]
-    return tag_idx#@timed
-
-
-#def generate_samples_csv(tag_samples, ctrain=CLEAN_CSV_FILE, sample_dir=SAMPLE_CSV_DIR):
-#    if not path.isdir(sample_dir):
-#        makedirs(sample_dir)
-#
-#    progress = 10000
-#    with open(ctrain, "w") as ccf:
-#        rd = csv.reader(ccf)
-#        rd.next()
-#
-#        for i, line in enumerate(rd):
-#            for tag in tag_samples:
-#                with open("%s/%s" % (sample_dir, tag), "a") as tsf:
-#                    wr = csv.writer(tsf)
-#                    sample = tag_samples[tag]
-#                    if int(line[0]) in sample[0]:
-#                        wr.writerow([line[0], line[1], line[2], True])
-#                    elif int(line[0]) in sample[1]:
-#                        wr.writerow([line[0], line[1], line[2], False])
-#            if (i + 1) % progress == 0:
-#                print "generate_samples_csv doc position: %d" % (i+1)
+    return tag_idx
 
 
 @timed
@@ -216,13 +186,74 @@ def generate_samples_csv(sample_idx, ctrain=CLEAN_CSV_FILE, sample_dir=SAMPLE_CS
                 print "generate_samples_csv doc position: %d" % (i+1)
 
 
+@timed
+def cached_stopwords(stop_file=STOPWORDS_FILE, dump_file=STOPWORDS_DAT):
+    if path.isfile(dump_file):
+        return pickle.load(open(dump_file, "r"))
+    with open(stop_file, "r") as swf:
+        stopwords = []
+        for line in swf:
+            stopwords.append(line.strip())
+    pickle.dump(stopwords, open(dump_file, "w"))
+    return stopwords
+
+
+@timed
+def generate_feature_vectors(feature_dir=FEATURE_DIR, sample_dir=SAMPLE_CSV_DIR, stopwords=cached_stopwords()):
+    ls = listdir(sample_dir)
+    for f in ls:
+        file_path = "%s/%s.data"% (feature_dir, f)
+        if path.isfile(file_path):
+            print "file %s already exists" % file_path
+            continue
+        print "featurizing tag sample for: %s" % f
+        x, target = sample_features(f, sample_dir, stopwords=stop_words)
+        pickle.dump({"data": x, "target": target}, open(file_path, "w"))
+
+
+
+def sample_features(tag, sample_dir=SAMPLE_CSV_DIR, stopwords=[]):
+    with open("%s/%s" % (sample_dir, tag), "r") as tsf:
+        rd = csv.reader(tsf)
+        rd.next()
+
+        data = []
+        target = []
+        for line in rd:
+            format_input(line)
+            target.append(line[4] == "True")
+
+        #cv = TfIdfVectorizer(stop_words=stopwords)
+        cv = CountVectorizer(stop_words=stopwords)
+        x = cv.fit_transform(data)
+    return x, target
+
+
+# Test file 2+GB
+def load_test(test_file=TEST_FILE):
+    with open(test_file, "r") as tf:
+        rd = csv.reader(tf)
+        rd.next()
+
+        test = []
+        for row in rd:
+            test.append(format_input(parse_doc(row)))
+    return test
+
+
+def format_input(row):
+    # Title and Body
+    return row[1] + row[2]
+
+    # Title, Body, and Code
+    #return row[1] + row[2] + " ".join(ast.literal_eval(row[3]))
+
+
 if __name__ == '__main__':
     cleaned_csv_parse()
     rindex = r_index_parse()
     samples = generate_samples(rindex, 6034195)
     sample_idx = tag_sample_index(samples)
     generate_samples_csv(sample_idx)
-
-
-
-
+    stop_words = cached_stopwords()
+    generate_feature_vectors()

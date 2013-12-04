@@ -10,7 +10,7 @@ class PreprocessTest(unittest.TestCase):
         pass
 
     def test_cleaned_parse(self):
-        d = preprocess.cleaned_parse(train="test.csv", dump_file=None)
+        d = preprocess.cleaned_parse(query_file="test.csv")
         self.assertEquals("I've decided to convert a Windows Phone 7 app that fetches an "
                                 "XML feed and then parses it to an asp.net web app, using Visual "
                                 "Web Developer Express. I figure since the code already works for "
@@ -21,7 +21,7 @@ class PreprocessTest(unittest.TestCase):
                                 "create and createdefault, but no CreateHttp like there was in "
                                 "Windows Phone 7. I just need to figure out how to fetch the page, "
                                 "I assume the parsing will be the same as on my phone app. Any help? "
-                                "Thanks, Amanda", str(d[8][1]))
+                                "Thanks, Amanda", str(d[8][2]))
         self.assertEquals("A lot of frameworks use URL conventions like which is great, but if you "
                           "need any configuration beyond that, it's up to you to write your own routes. "
                           "How would you handle URLs like on the backend? (to list all of a user's friends) "
@@ -41,8 +41,8 @@ class PreprocessTest(unittest.TestCase):
                           "what people are familiar with. No one really commented on the extended class "
                           "aside from saying it's \"awkward\". Perhaps FriendList would have been a more "
                           "appropriate class in that case if I really wanted to separate it out. Thanks "
-                          "for all the answers :)", str(d[16][1]))
-        self.assertEqual("/controller/action/{id}", d[16][2][0])
+                          "for all the answers :)", str(d[16][2]))
+        self.assertEqual("/controller/action/{id}", d[16][3][0])
         self.assertEquals("""class User {
     function index() {
         echo 'user index';
@@ -54,7 +54,7 @@ class Friend extends User {
         echo 'friend index';
     }
 }
-""", str(d[16][2][2]))
+""", str(d[16][3][2]))
 
 
     def test_sample_index(self):
