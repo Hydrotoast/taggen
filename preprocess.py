@@ -4,25 +4,26 @@ import csv
 import re
 import pickle
 import random
-import ast
 from time import time
 from functools import wraps
 from os import path
 from os import makedirs
 from os import listdir
 from sklearn.feature_extraction.text import CountVectorizer
-#from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+from multiprocessing.pool import Pool
+from functools import partial
 
 
-TRAIN_FILE = "/host/Users/Public/Documents/Train.csv"
-TEST_FILE = "Test.csv"
-CLEAN_CSV_FILE = "train_clean.csv"
-CLEAN_DAT_FILE = "train_clean.dat"
-SAMPLE_CSV_DIR = "samples"
-FEATURE_DIR = "features"
-TAG_RINDEX_FILE = "tag_index.dat"
-STOPWORDS_FILE = "stopwords.txt"
-STOPWORDS_DAT = "stopwords.dat"
+TRAIN_FILE = path.join(config.DATA_DIR, 'train.csv')
+TEST_FILE = path.join(config.DATA_DIR, 'test.csv')
+
+CLEAN_CSV_FILE = path.join(config.CACHE_DIR, "train_clean.csv")
+CLEAN_DAT_FILE = path.join(config.CACHE_DIR, "train_clean.dat")
+TAG_RINDEX_FILE = path.join(config.CACHE_DIR, "tag_index.dat")
+STOPWORDS_FILE = path.join(config.CACHE_DIR, "stopwords.txt")
+STOPWORDS_DAT = path.join(config.CACHE_DIR, "stopwords.dat")
 
 
 def timed(f):
@@ -165,7 +166,7 @@ def tag_sample_index(samples):
 
 
 @timed
-def generate_samples_csv(sample_idx, ctrain=CLEAN_CSV_FILE, sample_dir=SAMPLE_CSV_DIR):
+def generate_samples_csv(sample_idx, ctrain=CLEAN_CSV_FILE, sample_dir=config.SAMPLES_DIR):
     if not path.isdir(sample_dir):
         makedirs(sample_dir)
 
@@ -199,20 +200,24 @@ def cached_stopwords(stop_file=STOPWORDS_FILE, dump_file=STOPWORDS_DAT):
 
 
 @timed
-def generate_feature_vectors(feature_dir=FEATURE_DIR, sample_dir=SAMPLE_CSV_DIR, stopwords=cached_stopwords()):
+def generate_feature_vectors(feature_dir=FEATURES_DIR, sample_dir=config.SAMPLES_DIR, stopwords=cached_stopwords()):
+    pool = Pool(processes=4)
     ls = listdir(sample_dir)
-    for f in ls:
-        file_path = "%s/%s.data"% (feature_dir, f)
-        if path.isfile(file_path):
-            print "file %s already exists" % file_path
-            continue
-        print "featurizing tag sample for: %s" % f
-        x, target, vocab = sample_features(f, sample_dir, stopwords=stop_words)
-        pickle.dump({"data": x, "target": target, "vocabulary": vocab}, open(file_path, "w"))
+    partial_generate_feature_vector = partial(generate_feature_vector, feature_dir=feature_dir, sample_dir=sample_dir, stopwords=stopwords)
+    pool.map(partial_generate_feature_vector, ls)
 
 
+def generate_feature_vector(f, feature_dir, sample_dir, stopwords):
+    file_path = "%s/%s.data"% (feature_dir, f)
+    if path.isfile(file_path):
+        print "file %s already exists" % file_path
+        return
+    print "featurizing tag sample for: %s" % f
+    x, target, vocab = sample_features(f, sample_dir, stopwords=stopwords)
+    pickle.dump({"data": x, "target": target, "vocabulary": vocab}, open(file_path, "w"))
 
-def sample_features(tag, sample_dir=SAMPLE_CSV_DIR, stopwords=[]):
+
+def sample_features(tag, sample_dir=config.SAMPLES_DIR, stopwords=[]):
     with open("%s/%s" % (sample_dir, tag), "r") as tsf:
         rd = csv.reader(tsf)
         rd.next()
@@ -220,7 +225,7 @@ def sample_features(tag, sample_dir=SAMPLE_CSV_DIR, stopwords=[]):
         data = []
         target = []
         for line in rd:
-            format_input(line)
+            data.append(format_input(line))
             target.append(line[4] == "True")
 
         #cv = TfIdfVectorizer(stop_words=stopwords)
