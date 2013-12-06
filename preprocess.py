@@ -14,7 +14,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 from multiprocessing.pool import Pool
 from functools import partial
-
+import config
 
 TRAIN_FILE = path.join(config.DATA_DIR, 'train.csv')
 TEST_FILE = path.join(config.DATA_DIR, 'test.csv')
@@ -200,7 +200,7 @@ def cached_stopwords(stop_file=STOPWORDS_FILE, dump_file=STOPWORDS_DAT):
 
 
 @timed
-def generate_feature_vectors(feature_dir=FEATURES_DIR, sample_dir=config.SAMPLES_DIR, stopwords=cached_stopwords()):
+def generate_feature_vectors(feature_dir=config.FEATURES_DIR, sample_dir=config.SAMPLES_DIR, stopwords=cached_stopwords()):
     pool = Pool(processes=4)
     ls = listdir(sample_dir)
     partial_generate_feature_vector = partial(generate_feature_vector, feature_dir=feature_dir, sample_dir=sample_dir, stopwords=stopwords)
