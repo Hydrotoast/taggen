@@ -12,12 +12,21 @@ import numpy as np
 
 from sklearn import cross_validation
 from sklearn.pipeline import Pipeline
+from sklearn.grid_search import GridSearchCV
 
 from sklearn.decomposition import pca
 
 from sklearn.naive_bayes import GaussianNB
 from sklearn.svm import LinearSVC
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+
+config.FEATURES_DIR = os.path.join(config.FEATURES_DIR, 'tfidf_transfomer')
+config.RESULTS_DIR = os.path.join(config.RESULTS_DIR, 'tfidf_transfomer')
+
+def model_cross_val_score(model):
+    for parameters, mean_validation_score, cv_validation_scores in model.grid_scores_:
+        if parameters == model.best_params_:
+            return cv_validation_scores
 
 def print_accuracy(name, scores):
     print "Mean F1-Score: %0.4f (+/- %0.2f) using %s" % (scores.mean(), scores.std() * 2, name)
@@ -32,23 +41,43 @@ def analyze_tag(train, target, tag_name):
 
     # estimators
     gnb = GaussianNB()
-    svc = LinearSVC()
+    svc = LinearSVC(dual=False)
     rfc = RandomForestClassifier()
     gbc = GradientBoostingClassifier()
 
     # pipelines
-    gnb_pipeline = Pipeline([('PCA', pca_pp), ('GaussianNB', gnb)])
-    svc_pipeline = Pipeline([('PCA', pca_pp), ('LinearSVC', svc)])
-    rfc_pipeline = Pipeline([('PCA', pca_pp), ('RandomForestClassifier', rfc)])
-    gbc_pipeline = Pipeline([('PCA', pca_pp), ('GradientBoostingClassifier', gbc)])
+    gnb_pipeline = Pipeline([('pca', pca_pp), ('clf', gnb)])
+    svc_pipeline = Pipeline([('pca', pca_pp), ('clf', svc)])
+    rfc_pipeline = Pipeline([('pca', pca_pp), ('clf', rfc)])
+    gbc_pipeline = Pipeline([('pca', pca_pp), ('clf', gbc)])
 
+    # K-Fold cross-validation strategy
     skf = cross_validation.StratifiedKFold(target, n_folds=3)
 
+    # parameter grids
+    gnb_param_grid = {} # there are no parameters for Gaussian Naive Bayes
+    svc_param_grid = dict(clf__C=10 ** np.arange(0, 9))
+    rfc_param_grid = dict(
+        clf__n_estimators=[10, 20, 30],
+        clf__criterion=['gini', 'entropy'],
+        clf__max_features=['sqrt', 'log2'],
+        clf__min_samples_split=[1, 2, 3])
+    gbc_param_grid = dict(
+        clf__n_estimators=[100, 200, 300],
+        clf__max_features=['sqrt', 'log2'],
+        clf__min_samples_split=[1, 2, 3])
+
+    # hyperparameter optimization
+    gnb_model = GridSearchCV(gnb_pipeline, gnb_param_grid, scoring='f1', cv=skf, n_jobs=4).fit(train, target)
+    svc_model = GridSearchCV(svc_pipeline, svc_param_grid, scoring='f1', cv=skf, n_jobs=4).fit(train, target)
+    rfc_model = GridSearchCV(rfc_pipeline, rfc_param_grid, scoring='f1', cv=skf, n_jobs=4).fit(train, target)
+    gbc_model = GridSearchCV(gbc_pipeline, gbc_param_grid, scoring='f1', cv=skf, n_jobs=4).fit(train, target)
+
     # cross validated scores
-    gnb_scores = cross_validation.cross_val_score(gnb_pipeline, train, target, scoring='f1', cv=skf, n_jobs=1)
-    svc_scores = cross_validation.cross_val_score(svc_pipeline, train, target, scoring='f1', cv=skf, n_jobs=1)
-    rfc_scores = cross_validation.cross_val_score(rfc_pipeline, train, target, scoring='f1', cv=skf, n_jobs=1)
-    gbc_scores = cross_validation.cross_val_score(gbc_pipeline, train, target, scoring='f1', cv=skf, n_jobs=1)
+    gnb_scores = model_cross_val_score(gnb_model)
+    svc_scores = model_cross_val_score(svc_model)
+    rfc_scores = model_cross_val_score(rfc_model)
+    gbc_scores = model_cross_val_score(gbc_model)
 
     # print scores
     print 'surveying estimators for tag: %s' % tag_name
@@ -60,14 +89,13 @@ def analyze_tag(train, target, tag_name):
     # find the best estimator and train it
     best_estimator = max(
         [
-            (gnb_scores.mean(), gnb_pipeline),
-            (svc_scores.mean(), svc_pipeline),
-            (rfc_scores.mean(), rfc_pipeline),
-            (gbc_scores.mean(), gbc_pipeline)
+            (gnb_scores.mean(), gnb_model),
+            (svc_scores.mean(), svc_model),
+            (rfc_scores.mean(), rfc_model),
+            (gbc_scores.mean(), gbc_model)
         ],
         key=itemgetter(0)
     )[1]
-    best_estimator.fit(train, target)
 
     # cache the estimator
     pickle.dump(best_estimator, open(os.path.join(config.ESTIMATORS_DIR, tag_name), 'w'))
@@ -77,6 +105,7 @@ def analyze_tag(train, target, tag_name):
     pickle.dump(result_row, open(os.path.join(config.RESULTS_DIR, tag_name + '.dat'), 'w'))
     return result_row
 
+@preprocess.timed
 def analyze_tag_task(feature_file):
     # load data
     feature = pickle.load(open(os.path.join(config.FEATURES_DIR, feature_file), 'r'))
@@ -101,10 +130,16 @@ def cache_results(results):
             writer.writerow(result)
 
 @preprocess.timed
-def analyze_tags(selected_tags=None):
+def analyze_tags_parallel(selected_tags=None):
     ls = os.listdir(config.FEATURES_DIR) if selected_tags is None else selected_tags
     pool = Pool(processes=4)
     results = pool.map(analyze_tag_task, ls)
+    cache_results(results)
+
+@preprocess.timed
+def analyze_tags(selected_tags=None):
+    ls = os.listdir(config.FEATURES_DIR) if selected_tags is None else selected_tags
+    results = map(analyze_tag_task, ls)
     cache_results(results)
 
 if __name__ == '__main__':
