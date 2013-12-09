@@ -10,7 +10,7 @@ from os import path
 from os import makedirs
 from os import listdir
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfTransformer
 
 from multiprocessing.pool import Pool
 from functools import partial
@@ -200,24 +200,25 @@ def cached_stopwords(stop_file=STOPWORDS_FILE, dump_file=STOPWORDS_DAT):
 
 
 @timed
-def generate_feature_vectors(feature_dir=config.FEATURES_DIR, sample_dir=config.SAMPLES_DIR, stopwords=cached_stopwords()):
+def generate_feature_vectors(feature_dir=config.FEATURES_DIR, sample_dir=config.SAMPLES_DIR, stopwords=cached_stopwords(), tfidf=False):
     pool = Pool(processes=4)
     ls = listdir(sample_dir)
-    partial_generate_feature_vector = partial(generate_feature_vector, feature_dir=feature_dir, sample_dir=sample_dir, stopwords=stopwords)
+    partial_generate_feature_vector = partial(generate_feature_vector, feature_dir=feature_dir, sample_dir=sample_dir, stopwords=stopwords, tfidf=tfidf)
     pool.map(partial_generate_feature_vector, ls)
 
 
-def generate_feature_vector(f, feature_dir, sample_dir, stopwords):
+def generate_feature_vector(f, feature_dir, sample_dir, stopwords, tfidf=False):
+    feature_dir = path.join(feature_dir, 'tfidf_transformer') if tfidf else path.join(feature_dir, 'count_vectorizer')
     file_path = "%s/%s.data"% (feature_dir, f)
     if path.isfile(file_path):
         print "file %s already exists" % file_path
         return
     print "featurizing tag sample for: %s" % f
-    x, target, vocab = sample_features(f, sample_dir, stopwords=stopwords)
+    x, target, vocab = sample_features(f, sample_dir, stopwords=stopwords, tfidf=tfidf)
     pickle.dump({"data": x, "target": target, "vocabulary": vocab}, open(file_path, "w"))
 
 
-def sample_features(tag, sample_dir=config.SAMPLES_DIR, stopwords=[]):
+def sample_features(tag, sample_dir=config.SAMPLES_DIR, stopwords=[], tfidf=False):
     with open("%s/%s" % (sample_dir, tag), "r") as tsf:
         rd = csv.reader(tsf)
         rd.next()
@@ -225,12 +226,15 @@ def sample_features(tag, sample_dir=config.SAMPLES_DIR, stopwords=[]):
         data = []
         target = []
         for line in rd:
-            data.append(format_input(line))
-            target.append(line[4] == "True")
+            if len(line) >= 5:
+                data.append(format_input(line))
+                target.append(line[4] == "True")
 
-        #cv = TfIdfVectorizer(stop_words=stopwords)
         cv = CountVectorizer(stop_words=stopwords)
-    return cv.fit_transform(data), target, cv.vocabulary_
+        transformed_data = cv.fit_transform(data)
+        if tfidf:
+            transformed_data = TfidfTransformer().fit_transform(transformed_data)
+    return transformed_data, target, cv.vocabulary_
 
 
 # Test file 2+GB
@@ -256,8 +260,8 @@ def format_input(row):
 if __name__ == '__main__':
     cleaned_csv_parse()
     rindex = r_index_parse()
-    samples = generate_samples(rindex, 6034195)
-    sample_idx = tag_sample_index(samples)
-    generate_samples_csv(sample_idx)
+    # samples = generate_samples(rindex, 6034195)
+    # sample_idx = tag_sample_index(samples)
+    # generate_samples_csv(sample_idx)
     stop_words = cached_stopwords()
-    generate_feature_vectors()
+    generate_feature_vectors(tfidf=True)
