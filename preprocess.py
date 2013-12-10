@@ -214,11 +214,11 @@ def generate_feature_vector(f, feature_dir, sample_dir, stopwords, tfidf=False):
         print "file %s already exists" % file_path
         return
     print "featurizing tag sample for: %s" % f
-    x, target, vocab = sample_features(f, sample_dir, stopwords=stopwords, tfidf=tfidf)
+    x, target, vocab = sample_features(f, sample_dir=sample_dir, stopwords=stopwords, tfidf=tfidf)
     pickle.dump({"data": x, "target": target, "vocabulary": vocab}, open(file_path, "w"))
 
 
-def sample_features(tag, sample_dir=config.SAMPLES_DIR, stopwords=[], tfidf=False):
+def sample_features(tag, sample_dir, stopwords, tfidf=False):
     with open("%s/%s" % (sample_dir, tag), "r") as tsf:
         rd = csv.reader(tsf)
         rd.next()
@@ -233,7 +233,7 @@ def sample_features(tag, sample_dir=config.SAMPLES_DIR, stopwords=[], tfidf=Fals
         cv = CountVectorizer(stop_words=stopwords)
         transformed_data = cv.fit_transform(data)
         if tfidf:
-            transformed_data = TfidfTransformer().fit_transform(transformed_data)
+            transformed_data = TfidfTransformer(stop_words=stopwords).fit_transform(transformed_data)
     return transformed_data, target, cv.vocabulary_
 
 
@@ -258,10 +258,9 @@ def format_input(row):
 
 
 if __name__ == '__main__':
-    cleaned_csv_parse()
-    rindex = r_index_parse()
+    # cleaned_csv_parse()
+    # rindex = r_index_parse()
     # samples = generate_samples(rindex, 6034195)
     # sample_idx = tag_sample_index(samples)
     # generate_samples_csv(sample_idx)
-    stop_words = cached_stopwords()
-    generate_feature_vectors(stoptfidf=True)
+    generate_feature_vectors(tfidf=True)

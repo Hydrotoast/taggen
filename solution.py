@@ -20,8 +20,11 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.svm import LinearSVC
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 
-config.FEATURES_DIR = os.path.join(config.FEATURES_DIR, 'tfidf_transformer')
-config.RESULTS_DIR = os.path.join(config.RESULTS_DIR, 'tfidf_transformer')
+#config.FEATURES_DIR = os.path.join(config.FEATURES_DIR, 'tfidf_transformer')
+#config.RESULTS_DIR = os.path.join(config.RESULTS_DIR, 'tfidf_transformer')
+
+config.FEATURES_DIR = os.path.join(config.FEATURES_DIR, 'count_vectorizer')
+config.RESULTS_DIR = os.path.join(config.RESULTS_DIR, 'count_vectorizer')
 
 def model_cross_val_score(model):
     for parameters, mean_validation_score, cv_validation_scores in model.grid_scores_:
@@ -32,10 +35,11 @@ def print_accuracy(name, scores):
     print "Mean F1-Score: %0.4f (+/- %0.2f) using %s" % (scores.mean(), scores.std() * 2, name)
 
 def analyze_tag(train, target, tag_name):
-    if os.path.exist/home/workbook/Projects/courses/cs175/so-tagging2s(os.path.join(config.RESULTS_DIR, tag_name + '.dat')):
+    if os.path.exists(os.path.join(config.RESULTS_DIR, tag_name + '.dat')):
         print 'loading previous results for tag: %s' % tag_name
         return pickle.load(open(os.path.join(config.RESULTS_DIR, tag_name + '.dat'), 'r'))
 
+    print 'surveying estimators for tag: %s' % tag_name
     # preprocessors
     pca_pp = pca.PCA(n_components=40)
 
@@ -80,7 +84,6 @@ def analyze_tag(train, target, tag_name):
     gbc_scores = model_cross_val_score(gbc_model)
 
     # print scores
-    print 'surveying estimators for tag: %s' % tag_name
     print_accuracy('Gaussian NB', gnb_scores)
     print_accuracy('LinearSVC', svc_scores)
     print_accuracy('RandomForestClassifier', rfc_scores)
