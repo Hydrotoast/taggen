@@ -32,7 +32,7 @@ def print_accuracy(name, scores):
     print "Mean F1-Score: %0.4f (+/- %0.2f) using %s" % (scores.mean(), scores.std() * 2, name)
 
 def analyze_tag(train, target, tag_name):
-    if os.path.exists(os.path.join(config.RESULTS_DIR, tag_name + '.dat')):
+    if os.path.exist/home/workbook/Projects/courses/cs175/so-tagging2s(os.path.join(config.RESULTS_DIR, tag_name + '.dat')):
         print 'loading previous results for tag: %s' % tag_name
         return pickle.load(open(os.path.join(config.RESULTS_DIR, tag_name + '.dat'), 'r'))
 

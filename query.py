@@ -7,6 +7,11 @@ import pickle
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.svm import LinearSVC
 
+#config.FEATURES_DIR = os.path.join(config.FEATURES_DIR, 'tfidf_transformer')
+#config.RESULTS_DIR = os.path.join(config.RESULTS_DIR, 'tfidf_transformer')
+config.FEATURES_DIR = os.path.join(config.FEATURES_DIR, 'count_vectorizer')
+config.RESULTS_DIR = os.path.join(config.RESULTS_DIR, 'count_vectorizer')
+
 def query_csvfile(query_file, output_file, estimator_dir=config.ESTIMATORS_DIR,
                   feature_dir=config.FEATURES_DIR, dump=None):
 

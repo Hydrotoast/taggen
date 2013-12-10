@@ -264,4 +264,4 @@ if __name__ == '__main__':
     # sample_idx = tag_sample_index(samples)
     # generate_samples_csv(sample_idx)
     stop_words = cached_stopwords()
-    generate_feature_vectors(tfidf=True)
+    generate_feature_vectors(stoptfidf=True)
