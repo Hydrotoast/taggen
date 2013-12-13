@@ -20,8 +20,11 @@ from sklearn.naive_bayes import MultinomialNB
 from sklearn.svm import LinearSVC
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 
-config.FEATURES_DIR = os.path.join(config.FEATURES_DIR, 'tfidf_transformer')
-config.RESULTS_DIR = os.path.join(config.RESULTS_DIR, 'tfidf_transformer')
+#config.FEATURES_DIR = os.path.join(config.FEATURES_DIR, 'tfidf_transformer')
+#config.RESULTS_DIR = os.path.join(config.RESULTS_DIR, 'tfidf_transformer')
+
+config.FEATURES_DIR = os.path.join(config.FEATURES_DIR, 'count_vectorizer')
+config.RESULTS_DIR = os.path.join(config.RESULTS_DIR, 'count_vectorizer')
 
 def model_cross_val_score(model):
     for parameters, mean_validation_score, cv_validation_scores in model.grid_scores_:
@@ -36,6 +39,7 @@ def analyze_tag(train, target, tag_name):
         print 'loading previous results for tag: %s' % tag_name
         return pickle.load(open(os.path.join(config.RESULTS_DIR, tag_name + '.dat'), 'r'))
 
+    print 'surveying estimators for tag: %s' % tag_name
     # preprocessors
     pca_pp = pca.PCA(n_components=40)
 
