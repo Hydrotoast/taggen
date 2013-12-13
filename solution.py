@@ -16,7 +16,7 @@ from sklearn.grid_search import GridSearchCV
 
 from sklearn.decomposition import pca
 
-from sklearn.naive_bayes import GaussianNB
+from sklearn.naive_bayes import MultinomialNB
 from sklearn.svm import LinearSVC
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 
@@ -40,59 +40,59 @@ def analyze_tag(train, target, tag_name):
     pca_pp = pca.PCA(n_components=40)
 
     # estimators
-    gnb = GaussianNB()
-    svc = LinearSVC(dual=False)
-    rfc = RandomForestClassifier()
-    gbc = GradientBoostingClassifier()
+    mnb = MultinomialNB()
+    # svc = LinearSVC(dual=False)
+    # rfc = RandomForestClassifier()
+    # gbc = GradientBoostingClassifier()
 
     # pipelines
-    gnb_pipeline = Pipeline([('pca', pca_pp), ('clf', gnb)])
-    svc_pipeline = Pipeline([('pca', pca_pp), ('clf', svc)])
-    rfc_pipeline = Pipeline([('pca', pca_pp), ('clf', rfc)])
-    gbc_pipeline = Pipeline([('pca', pca_pp), ('clf', gbc)])
+    mnb_pipeline = Pipeline([('pca', pca_pp), ('clf', mnb)])
+    # svc_pipeline = Pipeline([('pca', pca_pp), ('clf', svc)])
+    # rfc_pipeline = Pipeline([('pca', pca_pp), ('clf', rfc)])
+    # gbc_pipeline = Pipeline([('pca', pca_pp), ('clf', gbc)])
 
     # K-Fold cross-validation strategy
     skf = cross_validation.StratifiedKFold(target, n_folds=3)
 
     # parameter grids
-    gnb_param_grid = {} # there are no parameters for Gaussian Naive Bayes
-    svc_param_grid = dict(clf__C=10 ** np.arange(0, 9))
-    rfc_param_grid = dict(
-        clf__n_estimators=[10, 20, 30],
-        clf__criterion=['gini', 'entropy'],
-        clf__max_features=['sqrt', 'log2'],
-        clf__min_samples_split=[1, 2, 3])
-    gbc_param_grid = dict(
-        clf__n_estimators=[100, 200, 300],
-        clf__max_features=['sqrt', 'log2'],
-        clf__min_samples_split=[1, 2, 3])
+    mnb_param_grid = {} # there are no parameters for Multinomial Naive Bayes
+    # svc_param_grid = dict(clf__C=10 ** np.arange(0, 9))
+    # rfc_param_grid = dict(
+    #     clf__n_estimators=[10, 20, 30],
+    #     clf__criterion=['gini', 'entropy'],
+    #     clf__max_features=['sqrt', 'log2'],
+    #     clf__min_samples_split=[1, 2, 3])
+    # gbc_param_grid = dict(
+    #     clf__n_estimators=[100, 200, 300],
+    #     clf__max_features=['sqrt', 'log2'],
+    #     clf__min_samples_split=[1, 2, 3])
 
     # hyperparameter optimization
-    gnb_model = GridSearchCV(gnb_pipeline, gnb_param_grid, scoring='f1', cv=skf, n_jobs=4).fit(train, target)
-    svc_model = GridSearchCV(svc_pipeline, svc_param_grid, scoring='f1', cv=skf, n_jobs=4).fit(train, target)
-    rfc_model = GridSearchCV(rfc_pipeline, rfc_param_grid, scoring='f1', cv=skf, n_jobs=4).fit(train, target)
-    gbc_model = GridSearchCV(gbc_pipeline, gbc_param_grid, scoring='f1', cv=skf, n_jobs=4).fit(train, target)
+    mnb_model = GridSearchCV(mnb_pipeline, mnb_param_grid, scoring='f1', cv=skf, n_jobs=4).fit(train, target)
+    # svc_model = GridSearchCV(svc_pipeline, svc_param_grid, scoring='f1', cv=skf, n_jobs=4).fit(train, target)
+    # rfc_model = GridSearchCV(rfc_pipeline, rfc_param_grid, scoring='f1', cv=skf, n_jobs=4).fit(train, target)
+    # gbc_model = GridSearchCV(gbc_pipeline, gbc_param_grid, scoring='f1', cv=skf, n_jobs=4).fit(train, target)
 
     # cross validated scores
-    gnb_scores = model_cross_val_score(gnb_model)
-    svc_scores = model_cross_val_score(svc_model)
-    rfc_scores = model_cross_val_score(rfc_model)
-    gbc_scores = model_cross_val_score(gbc_model)
+    mnb_scores = model_cross_val_score(mnb_model)
+    # svc_scores = model_cross_val_score(svc_model)
+    # rfc_scores = model_cross_val_score(rfc_model)
+    # gbc_scores = model_cross_val_score(gbc_model)
 
     # print scores
     print 'surveying estimators for tag: %s' % tag_name
-    print_accuracy('Gaussian NB', gnb_scores)
-    print_accuracy('LinearSVC', svc_scores)
-    print_accuracy('RandomForestClassifier', rfc_scores)
-    print_accuracy('GradientBoostingClassifier', gbc_scores)
+    print_accuracy('Multinomial NB', mnb_scores)
+    # print_accuracy('LinearSVC', svc_scores)
+    # print_accuracy('RandomForestClassifier', rfc_scores)
+    # print_accuracy('GradientBoostingClassifier', gbc_scores)
 
     # find the best estimator and train it
     best_estimator = max(
         [
-            (gnb_scores.mean(), gnb_model),
-            (svc_scores.mean(), svc_model),
-            (rfc_scores.mean(), rfc_model),
-            (gbc_scores.mean(), gbc_model)
+            (mnb_scores.mean(), mnb_model),
+            # (svc_scores.mean(), svc_model),
+            # (rfc_scores.mean(), rfc_model),
+            # (gbc_scores.mean(), gbc_model)
         ],
         key=itemgetter(0)
     )[1]
@@ -101,14 +101,16 @@ def analyze_tag(train, target, tag_name):
     pickle.dump(best_estimator, open(os.path.join(config.ESTIMATORS_DIR, tag_name), 'w'))
 
     # return a list to be used as a CSV row
-    result_row = [tag_name, gnb_scores.mean(), svc_scores.mean(), rfc_scores.mean(), gbc_scores.mean()]
+    result_row = [tag_name, mnb_scores.mean()] #, svc_scores.mean(), rfc_scores.mean(), gbc_scores.mean()]
     pickle.dump(result_row, open(os.path.join(config.RESULTS_DIR, tag_name + '.dat'), 'w'))
     return result_row
 
 @preprocess.timed
 def analyze_tag_task(feature_file):
     # load data
-    feature = pickle.load(open(os.path.join(config.FEATURES_DIR, feature_file), 'r'))
+    fh = open(os.path.join(config.FEATURES_DIR, feature_file), 'r')
+    feature = pickle.load(fh)
+    fh.close()
     train = feature['data'].toarray()
     target = np.array(feature['target'])
 
@@ -125,7 +127,7 @@ def cache_results(results):
     pickle.dump(results, open(os.path.join(config.CACHE_DIR, 'results.dat'), 'w'))
     with open(results_file, 'w') as fh:
         writer = csv.writer(fh)
-        writer.writerow(['tag_name', 'gnb_scores_mean', 'svc_scores_mean', 'rfc_scores_mean', 'gbc_scores_mean'])
+        writer.writerow(['tag_name', 'mnb_scores_mean', 'svc_scores_mean', 'rfc_scores_mean', 'gbc_scores_mean'])
         for result in results:
             writer.writerow(result)
 

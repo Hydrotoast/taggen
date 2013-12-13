@@ -7,3 +7,6 @@ estimators/**
 samples/**
 features/**
 results/**
+
+*.aux
+*.log
