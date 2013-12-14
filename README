@@ -1,0 +1,55 @@
+
+
+StackExchange Tag Suggestion README
+CS 175 Fall 2013
+Mjolsness
+
+By Gio Borje and Paul Kang
+
+[ DEPENDENCIES ]
+scikit-learn (http://scikit-learn.org/stable/install.html)
+
+We train various classifiers with optimized parameters with our sample data.
+Based on their performance, as measured using the F1-scoring over 3-fold
+cross-validation, we select the best classifier for each tag. We do this for
+the purpose of maximizing performance, but also as a study of different classifiers
+on a data set such as ours. The algorithms that we applied were: Naive Bayes,
+SVM, Random Forest, and Gradient Tree Boosting.
+
+Due to the constraints of time and limited computational power, we were unable
+to generate estimators for 1150 tag as we had planned Instead, for the sake of
+an example, we tested our method on a small sample of 30 documents. The documents
+were selected based on their association with the tag “sqlalchemy” - this choice
+was simply based on the fact that to our knowledge, our sqlalchemy tag classifier
+performed significantly well among others. Estimators were generated for the
+tags assigned to sample documents which fell into our 1150 top tags. This came
+out to 15 classifier. Scoring the tag suggestions predicted by our 15 classifiers
+against the expected tags, our tag suggestion model received a best possible
+f1-score of 0.68 - best possible, because false positives are less likely in
+this scenario given that our classifier pool exactly matches the set of unique
+tags in the sample
+
+A clear flaw in our model was the limited number of tags that can be suggested,
+which is bounded at 1150. To extend the reach of our model, we considered a keyword
+extraction method using the feature statistics given by Tf-Idf (Term-frequency +
+Inverse-document-frequency) By adding but a single word from this simple keyword
+extraction schema to each prediction, we were able to increase our model’s
+performance by 13%.This works given the assumption that the topics of questions
+can be found as keywords in their text.
+
+[ DEMO ]
+The full training data set is not included in this project due to its size.
+Included however is a subset of the training data set ('head.csv') which can
+be used to test-run the pre-processing functionality. Please note that running
+the preprocess.py will write a significant amount of data to disk
+
+
+1. Run 'python config.py' to generate project directories
+2. Run 'python demo.py' to start the demo
+3. You will be prompted for whether or not to apply keyword extraction suggest
+   additional tags
+
+* Open 'predict.txt' to view the predicted tags for the query
+
+
+

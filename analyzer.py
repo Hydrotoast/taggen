@@ -1,5 +1,7 @@
-import config
 
+__author__ = "Gio Borje"
+
+import config
 import csv
 import pickle
 import os

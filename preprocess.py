@@ -1,40 +1,20 @@
-__author__ = 'workbook'
+
+__author__ = 'Paul Kang'
 
 import csv
 import re
 import pickle
 import random
+import os
+import config
 from time import time
-from functools import wraps
-from os import path
-from os import makedirs
-from os import listdir
+from util import timed
+
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
 
 from multiprocessing.pool import Pool
 from functools import partial
-import config
-
-TRAIN_FILE = path.join(config.DATA_DIR, 'train.csv')
-TEST_FILE = path.join(config.DATA_DIR, 'test.csv')
-
-CLEAN_CSV_FILE = path.join(config.CACHE_DIR, "train_clean.csv")
-CLEAN_DAT_FILE = path.join(config.CACHE_DIR, "train_clean.dat")
-TAG_RINDEX_FILE = path.join(config.CACHE_DIR, "tag_index.dat")
-STOPWORDS_FILE = path.join(config.CACHE_DIR, "stopwords.txt")
-STOPWORDS_DAT = path.join(config.CACHE_DIR, "stopwords.dat")
-
-
-def timed(f):
-    @wraps(f)
-    def wrapper(*args, **kwds):
-        start = time()
-        result = f(*args, **kwds)
-        elapsed = time() - start
-        print "%s took %d sec to finish" % (f.__name__, elapsed)
-        return result
-    return wrapper
 
 
 @timed
@@ -54,10 +34,9 @@ def cleaned_parse(query_file):
     return docs
 
 
-# ======= Stored to disk ==========
 @timed
-def cleaned_csv_parse(out_file=CLEAN_CSV_FILE, train=TRAIN_FILE):
-    if path.isfile(out_file):
+def cleaned_csv_parse(out_file=config.CLEAN_CSV_FILE, train=config.TRAIN_FILE):
+    if os.path.isfile(out_file):
         print "File already exists"
         return
     with open(out_file, "w") as ccf, open(train, "r") as tf:
@@ -107,8 +86,8 @@ def parse_text(text):
 
 
 @timed
-def r_index_parse(train=TRAIN_FILE, dump_file=TAG_RINDEX_FILE):
-    if path.isfile(dump_file):
+def r_index_parse(train=config.TRAIN_FILE, dump_file=config.TAG_RINDEX_FILE):
+    if os.path.isfile(dump_file):
         return pickle.load(open(dump_file, "r"))
 
     tag_index = {}
@@ -166,9 +145,9 @@ def tag_sample_index(samples):
 
 
 @timed
-def generate_samples_csv(sample_idx, ctrain=CLEAN_CSV_FILE, sample_dir=config.SAMPLES_DIR):
-    if not path.isdir(sample_dir):
-        makedirs(sample_dir)
+def generate_samples_csv(sample_idx, ctrain=config.CLEAN_CSV_FILE, sample_dir=config.SAMPLES_DIR):
+    if not os.path.isdir(sample_dir):
+        os.makedirs(sample_dir)
 
     progress = 10000
     with open(ctrain, "r") as ccf:
@@ -188,8 +167,8 @@ def generate_samples_csv(sample_idx, ctrain=CLEAN_CSV_FILE, sample_dir=config.SA
 
 
 @timed
-def cached_stopwords(stop_file=STOPWORDS_FILE, dump_file=STOPWORDS_DAT):
-    if path.isfile(dump_file):
+def cached_stopwords(stop_file=config.STOPWORDS_FILE, dump_file=config.STOPWORDS_DAT):
+    if os.path.isfile(dump_file):
         return pickle.load(open(dump_file, "r"))
     with open(stop_file, "r") as swf:
         stopwords = []
@@ -200,17 +179,19 @@ def cached_stopwords(stop_file=STOPWORDS_FILE, dump_file=STOPWORDS_DAT):
 
 
 @timed
-def generate_feature_vectors(feature_dir=config.FEATURES_DIR, sample_dir=config.SAMPLES_DIR, stopwords=cached_stopwords(), tfidf=False):
+def generate_feature_vectors(feature_dir=config.FEATURES_DIR, sample_dir=config.SAMPLES_DIR, stopwords="english", tfidf=False):
     pool = Pool(processes=4)
-    ls = listdir(sample_dir)
-    partial_generate_feature_vector = partial(generate_feature_vector, feature_dir=feature_dir, sample_dir=sample_dir, stopwords=stopwords, tfidf=tfidf)
+    ls = os.listdir(sample_dir)
+    partial_generate_feature_vector = \
+        partial(generate_feature_vector_task, feature_dir=feature_dir, sample_dir=sample_dir, stopwords=stopwords, tfidf=tfidf)
     pool.map(partial_generate_feature_vector, ls)
 
 
-def generate_feature_vector(f, feature_dir, sample_dir, stopwords, tfidf=False):
-    feature_dir = path.join(feature_dir, 'tfidf_transformer') if tfidf else path.join(feature_dir, 'count_vectorizer')
-    file_path = "%s/%s.data"% (feature_dir, f)
-    if path.isfile(file_path):
+def generate_feature_vector_task(f, feature_dir, sample_dir, stopwords, tfidf):
+    file_path = os.path.join(feature_dir,
+                             config.TFIDF_TRANSFORMER if tfidf else config.COUNT_VECTORIZER,
+                             f + '.dat')
+    if os.path.isfile(file_path):
         print "file %s already exists" % file_path
         return
     print "featurizing tag sample for: %s" % f
@@ -218,7 +199,7 @@ def generate_feature_vector(f, feature_dir, sample_dir, stopwords, tfidf=False):
     pickle.dump({"data": x, "target": target, "vocabulary": vocab}, open(file_path, "w"))
 
 
-def sample_features(tag, sample_dir, stopwords, tfidf=False):
+def sample_features(tag, sample_dir, stopwords, tfidf):
     with open("%s/%s" % (sample_dir, tag), "r") as tsf:
         rd = csv.reader(tsf)
         rd.next()
@@ -237,18 +218,6 @@ def sample_features(tag, sample_dir, stopwords, tfidf=False):
     return transformed_data, target, cv.vocabulary_
 
 
-# Test file 2+GB
-def load_test(test_file=TEST_FILE):
-    with open(test_file, "r") as tf:
-        rd = csv.reader(tf)
-        rd.next()
-
-        test = []
-        for row in rd:
-            test.append(format_input(parse_doc(row)))
-    return test
-
-
 def format_input(row):
     # Title and Body
     return row[1] + row[2]
@@ -257,10 +226,16 @@ def format_input(row):
     #return row[1] + row[2] + " ".join(ast.literal_eval(row[3]))
 
 
+def clean_doc(row):
+    return format_input(parse_doc(row))
+
+
 if __name__ == '__main__':
-    # cleaned_csv_parse()
-    # rindex = r_index_parse()
-    # samples = generate_samples(rindex, 6034195)
-    # sample_idx = tag_sample_index(samples)
-    # generate_samples_csv(sample_idx)
-    generate_feature_vectors(tfidf=True)
+    cleaned_csv_parse()
+    rindex = r_index_parse()
+    samples = generate_samples(rindex, config.CORPUS_SIZE)
+    sample_idx = tag_sample_index(samples)
+    generate_samples_csv(sample_idx)
+
+    # No longer needed
+    #generate_feature_vectors(tfidf=True)

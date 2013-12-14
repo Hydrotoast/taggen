@@ -1,10 +1,10 @@
-import config
-import preprocess
 
+__author__ = 'Gio Borje'
+
+import config
 import csv
 import os
 from operator import itemgetter
-from functools import partial
 from multiprocessing.pool import Pool
 
 import pickle
@@ -19,12 +19,9 @@ from sklearn.decomposition import pca
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.svm import LinearSVC
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from util import timed
 
-#config.FEATURES_DIR = os.path.join(config.FEATURES_DIR, 'tfidf_transformer')
-#config.RESULTS_DIR = os.path.join(config.RESULTS_DIR, 'tfidf_transformer')
 
-config.FEATURES_DIR = os.path.join(config.FEATURES_DIR, 'count_vectorizer')
-config.RESULTS_DIR = os.path.join(config.RESULTS_DIR, 'count_vectorizer')
 
 def model_cross_val_score(model):
     for parameters, mean_validation_score, cv_validation_scores in model.grid_scores_:
@@ -34,10 +31,13 @@ def model_cross_val_score(model):
 def print_accuracy(name, scores):
     print "Mean F1-Score: %0.4f (+/- %0.2f) using %s" % (scores.mean(), scores.std() * 2, name)
 
-def analyze_tag(train, target, tag_name):
-    if os.path.exists(os.path.join(config.RESULTS_DIR, tag_name + '.dat')):
+def analyze_tag(train, target, tag_name, tfidf=False):
+    feature_path = os.path.join(config.FEATURES_DIR,
+                                config.TFIDF_TRANSFORMER if tfidf else config.COUNT_VECTORIZER,
+                                tag_name + '.dat')
+    if os.path.exists(feature_path):
         print 'loading previous results for tag: %s' % tag_name
-        return pickle.load(open(os.path.join(config.RESULTS_DIR, tag_name + '.dat'), 'r'))
+        return pickle.load(open(feature_path), 'r')
 
     print 'surveying estimators for tag: %s' % tag_name
     # preprocessors
@@ -45,71 +45,74 @@ def analyze_tag(train, target, tag_name):
 
     # estimators
     mnb = MultinomialNB()
-    # svc = LinearSVC(dual=False)
-    # rfc = RandomForestClassifier()
-    # gbc = GradientBoostingClassifier()
+    svc = LinearSVC(dual=False)
+    rfc = RandomForestClassifier()
+    gbc = GradientBoostingClassifier()
 
     # pipelines
     mnb_pipeline = Pipeline([('pca', pca_pp), ('clf', mnb)])
-    # svc_pipeline = Pipeline([('pca', pca_pp), ('clf', svc)])
-    # rfc_pipeline = Pipeline([('pca', pca_pp), ('clf', rfc)])
-    # gbc_pipeline = Pipeline([('pca', pca_pp), ('clf', gbc)])
+    svc_pipeline = Pipeline([('pca', pca_pp), ('clf', svc)])
+    rfc_pipeline = Pipeline([('pca', pca_pp), ('clf', rfc)])
+    gbc_pipeline = Pipeline([('pca', pca_pp), ('clf', gbc)])
 
     # K-Fold cross-validation strategy
     skf = cross_validation.StratifiedKFold(target, n_folds=3)
 
     # parameter grids
     mnb_param_grid = {} # there are no parameters for Multinomial Naive Bayes
-    # svc_param_grid = dict(clf__C=10 ** np.arange(0, 9))
-    # rfc_param_grid = dict(
-    #     clf__n_estimators=[10, 20, 30],
-    #     clf__criterion=['gini', 'entropy'],
-    #     clf__max_features=['sqrt', 'log2'],
-    #     clf__min_samples_split=[1, 2, 3])
-    # gbc_param_grid = dict(
-    #     clf__n_estimators=[100, 200, 300],
-    #     clf__max_features=['sqrt', 'log2'],
-    #     clf__min_samples_split=[1, 2, 3])
+    svc_param_grid = dict(clf__C=10 ** np.arange(0, 9))
+    rfc_param_grid = dict(
+         clf__n_estimators=[10, 20, 30],
+         clf__criterion=['gini', 'entropy'],
+         clf__max_features=['sqrt', 'log2'],
+         clf__min_samples_split=[1, 2, 3])
+    gbc_param_grid = dict(
+         clf__n_estimators=[100, 200, 300],
+         clf__max_features=['sqrt', 'log2'],
+         clf__min_samples_split=[1, 2, 3])
 
     # hyperparameter optimization
     mnb_model = GridSearchCV(mnb_pipeline, mnb_param_grid, scoring='f1', cv=skf, n_jobs=4).fit(train, target)
-    # svc_model = GridSearchCV(svc_pipeline, svc_param_grid, scoring='f1', cv=skf, n_jobs=4).fit(train, target)
-    # rfc_model = GridSearchCV(rfc_pipeline, rfc_param_grid, scoring='f1', cv=skf, n_jobs=4).fit(train, target)
-    # gbc_model = GridSearchCV(gbc_pipeline, gbc_param_grid, scoring='f1', cv=skf, n_jobs=4).fit(train, target)
+    svc_model = GridSearchCV(svc_pipeline, svc_param_grid, scoring='f1', cv=skf, n_jobs=4).fit(train, target)
+    rfc_model = GridSearchCV(rfc_pipeline, rfc_param_grid, scoring='f1', cv=skf, n_jobs=4).fit(train, target)
+    gbc_model = GridSearchCV(gbc_pipeline, gbc_param_grid, scoring='f1', cv=skf, n_jobs=4).fit(train, target)
 
     # cross validated scores
     mnb_scores = model_cross_val_score(mnb_model)
-    # svc_scores = model_cross_val_score(svc_model)
-    # rfc_scores = model_cross_val_score(rfc_model)
-    # gbc_scores = model_cross_val_score(gbc_model)
+    svc_scores = model_cross_val_score(svc_model)
+    rfc_scores = model_cross_val_score(rfc_model)
+    gbc_scores = model_cross_val_score(gbc_model)
 
     # print scores
     print 'surveying estimators for tag: %s' % tag_name
     print_accuracy('Multinomial NB', mnb_scores)
-    # print_accuracy('LinearSVC', svc_scores)
-    # print_accuracy('RandomForestClassifier', rfc_scores)
-    # print_accuracy('GradientBoostingClassifier', gbc_scores)
+    print_accuracy('LinearSVC', svc_scores)
+    print_accuracy('RandomForestClassifier', rfc_scores)
+    print_accuracy('GradientBoostingClassifier', gbc_scores)
 
     # find the best estimator and train it
     best_estimator = max(
         [
             (mnb_scores.mean(), mnb_model),
-            # (svc_scores.mean(), svc_model),
-            # (rfc_scores.mean(), rfc_model),
-            # (gbc_scores.mean(), gbc_model)
+            (svc_scores.mean(), svc_model),
+            (rfc_scores.mean(), rfc_model),
+            (gbc_scores.mean(), gbc_model)
         ],
         key=itemgetter(0)
     )[1]
 
     # cache the estimator
-    pickle.dump(best_estimator, open(os.path.join(config.ESTIMATORS_DIR, tag_name), 'w'))
+    estimator_path = os.path.join(config.ESTIMATORS_DIR,
+                                       config.TFIDF_TRANSFORMER if tfidf else config.COUNT_VECTORIZER,
+                                       tag_name)
+    pickle.dump(best_estimator, open(estimator_path, 'w'))
 
     # return a list to be used as a CSV row
-    result_row = [tag_name, mnb_scores.mean()] #, svc_scores.mean(), rfc_scores.mean(), gbc_scores.mean()]
+    result_row = [tag_name, mnb_scores.mean(), svc_scores.mean(), rfc_scores.mean(), gbc_scores.mean()]
     pickle.dump(result_row, open(os.path.join(config.RESULTS_DIR, tag_name + '.dat'), 'w'))
     return result_row
 
-@preprocess.timed
+@timed
 def analyze_tag_task(feature_file):
     # load data
     fh = open(os.path.join(config.FEATURES_DIR, feature_file), 'r')
@@ -121,6 +124,7 @@ def analyze_tag_task(feature_file):
     # analyze the data!
     results = analyze_tag(train, target, os.path.splitext(os.path.basename(feature_file))[0])
     return results
+
 
 def cache_results(results):
     results_file = os.path.join(config.RESULTS_DIR, config.ESTIMATOR_RESULTS)
@@ -135,14 +139,14 @@ def cache_results(results):
         for result in results:
             writer.writerow(result)
 
-@preprocess.timed
+@timed
 def analyze_tags_parallel(selected_tags=None):
     ls = os.listdir(config.FEATURES_DIR) if selected_tags is None else selected_tags
     pool = Pool(processes=4)
     results = pool.map(analyze_tag_task, ls)
     cache_results(results)
 
-@preprocess.timed
+@timed
 def analyze_tags(selected_tags=None):
     ls = os.listdir(config.FEATURES_DIR) if selected_tags is None else selected_tags
     results = map(analyze_tag_task, ls)
@@ -151,7 +155,7 @@ def analyze_tags(selected_tags=None):
 if __name__ == '__main__':
     selected_tags = [
         'python', 'java', 'c++', 'c', 'ruby', 'haskell', # popular languages
-        'codeigniter', 'spring', 'sqlalchemy', 'oauth', # popular frameworks
+        'codeigniter', 'spring', 'demo_sample', 'oauth', # popular frameworks
         'mysql', 'oracle', 'postgresql', 'sqlite', # databases
         'ubuntu', 'debian', 'centos', 'osx', 'windows-7' # operating systems
     ]

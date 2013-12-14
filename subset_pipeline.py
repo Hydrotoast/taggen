@@ -1,10 +1,14 @@
-import config
-from preprocess import timed
 
+__author__ = 'Gio Borje'
+
+
+import config
 import os
 import csv
 import pickle
+import preprocess
 from operator import itemgetter
+from util import timed
 
 import numpy as np
 
@@ -19,21 +23,7 @@ from sklearn.naive_bayes import BernoulliNB
 from sklearn.svm import LinearSVC
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 
-STOPWORDS_FILE = os.path.join(config.CACHE_DIR, "stopwords.txt")
-STOPWORDS_DAT = os.path.join(config.CACHE_DIR, "stopwords.dat")
 
-config.RESULTS_DIR = os.path.join(config.RESULTS_DIR, 'latent_semantic_analysis')
-
-@timed
-def cached_stopwords(stop_file=STOPWORDS_FILE, dump_file=STOPWORDS_DAT):
-    if os.path.isfile(dump_file):
-        return pickle.load(open(dump_file, "r"))
-    with open(stop_file, "r") as swf:
-        stopwords = []
-        for line in swf:
-            stopwords.append(line.strip())
-    pickle.dump(stopwords, open(dump_file, "w"))
-    return stopwords
 
 def cache_results(results):
     results_file = os.path.join(config.RESULTS_DIR, config.ESTIMATOR_RESULTS)
@@ -48,22 +38,21 @@ def cache_results(results):
         for result in results:
             writer.writerow(result)
 
-
 @timed
-def analyze_subset_pipelines():
+def analyze_subset_pipelines(subset=None, stop_words="english"):
     selected_tags = [
-        'codeigniter', 'spring', 'sqlalchemy', 'oauth', # popular frameworks
+        'codeigniter', 'spring', 'demo_sample', 'oauth', # popular frameworks
         'mysql', 'oracle', 'postgresql', 'sqlite', # databases
         'ubuntu', 'debian', 'centos', 'osx', 'windows-7', # operating systems
         'python', 'java', 'c++', 'c', 'ruby', 'haskell' # popular languages
-    ]
+    ] if not subset else subset
     results = map(analyze_subset_pipeline, selected_tags)
     cache_results(results)
 
-def analyze_subset_pipeline(tag_name):
+def analyze_subset_pipeline(tag_name, stop_words="english"):
     print "featurizing tag sample for: %s" % tag_name
     train, target = sample_features(tag_name)
-    return analyze_tag(train, target, tag_name)
+    return analyze_tag(train, target, tag_name, stop_words)
 
 def sample_features(tag_name):
     with open(os.path.join(config.SAMPLES_DIR, tag_name), "r") as tsf:
@@ -85,7 +74,7 @@ def model_cross_val_score(model):
         if parameters == model.best_params_:
             return cv_validation_scores
 
-def analyze_tag(train, target, tag_name, stop_words=cached_stopwords()):
+def analyze_tag(train, target, tag_name, stop_words="english"):
     if os.path.exists(os.path.join(config.RESULTS_DIR, tag_name + '.dat')):
         print 'loading previous results for tag: %s' % tag_name
         return pickle.load(open(os.path.join(config.RESULTS_DIR, tag_name + '.dat'), 'r'))
@@ -156,7 +145,8 @@ def analyze_tag(train, target, tag_name, stop_words=cached_stopwords()):
     )[1]
 
     # cache the estimator
-    pickle.dump({'estimator': best_estimator, 'vectorizer': transformers}, open(os.path.join(config.ESTIMATORS_DIR, tag_name), 'w'))
+    pickle.dump({'estimator': best_estimator, 'vectorizer': transformers},
+                open(os.path.join(config.ESTIMATORS_DIR, tag_name), 'w'))
 
     # return a list to be used as a CSV row
     result_row = [tag_name, bnb_scores.mean(), svc_scores.mean(), rfc_scores.mean(), gbc_scores.mean()]
@@ -164,5 +154,6 @@ def analyze_tag(train, target, tag_name, stop_words=cached_stopwords()):
     return result_row
 
 if __name__ == '__main__':
-    analyze_subset_pipelines()
+    stopwords = preprocess.cached_stopwords()
+    analyze_subset_pipelines(stop_words=stopwords)
 

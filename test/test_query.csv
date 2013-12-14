@@ -3,3 +3,14 @@ Id,Title,Body,Tags
 
 <p>Is there a way to check if the uploaded file is an image apart from checking the file extension using PHP?</p>
 ",php image-processing file-upload upload mime-types
+8,How to fetch an XML feed using asp.net,"<p>I've decided to convert a Windows Phone 7 app that fetches an XML feed and then parses it to an asp.net web app, using Visual Web Developer Express. I figure since the code already works for WP7, it should be a matter of mostly copying and pasting it for the C# code behind. </p>
+
+<pre><code>HttpWebRequest request = HttpWebRequest.CreateHttp(""http://webservices.nextbus.com/service/publicXMLFeed?command=routeConfig&amp;a=sf-muni&amp;r="" + line1);
+</code></pre>
+
+<p>That's the first line of code from my WP7 app that fetches the XML feed, but I can't even get HttpWebRequest to work in Visual Web Developer like that. Intellisense shows a create and createdefault, but no CreateHttp like there was in Windows Phone 7. I just need to figure out how to fetch the page, I assume the parsing will be the same as on my phone app. Any help?</p>
+
+<p>Thanks,</p>
+
+<p>Amanda</p>
+",c# asp.net windows-phone-7
